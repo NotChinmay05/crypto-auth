@@ -38,8 +38,9 @@ def _pad(message: bytes) -> bytes:
 
 def sha256(data: bytes) -> bytes:
     h = list(H0)
-    for offset in range(0, len(_pad(data)), 64):
-        chunk = _pad(data)[offset : offset + 64]
+    padded = _pad(data)
+    for offset in range(0, len(padded), 64):
+        chunk = padded[offset : offset + 64]
         w = [int.from_bytes(chunk[i : i + 4], "big") for i in range(0, 64, 4)]
         for i in range(16, 64):
             s0 = _rotr(w[i - 15], 7) ^ _rotr(w[i - 15], 18) ^ (w[i - 15] >> 3)

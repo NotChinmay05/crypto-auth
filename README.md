@@ -22,6 +22,8 @@ Open `http://127.0.0.1:8000/` for the static playground.
 
 Open `http://127.0.0.1:8000/demo` for a separate sample website that registers users with a `user` or `admin` role claim, logs them in, and enables UI sections based on the verified role.
 
+Open `http://127.0.0.1:8000/image` for the steganographic image signing studio. It signs images by embedding an HMAC-protected certificate into red-channel LSBs and verifies whether a signed PNG is authentic, tampered, or unsigned.
+
 ## Test
 
 ```bash
@@ -49,3 +51,6 @@ export CAT_SIGNING_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbc
 - `GET /auth/inspect`
 - `GET /auth/me`
 - `GET /health`
+- `POST /image/sign`
+- `POST /image/verify`
+- `POST /image/inspect`
