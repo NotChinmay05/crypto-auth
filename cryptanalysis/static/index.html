@@ -11,52 +11,111 @@
     <div>
       <p class="eyebrow">CryptoAuth educational analysis</p>
       <h1>CAT Cryptanalysis Lab</h1>
+      <p>Run controlled attacks against locally generated demo tokens and password records.</p>
     </div>
-    <button id="run-all" class="secondary">Run All</button>
+    <div class="top-actions">
+      <button id="run-all">Run All Analyses</button>
+      <span id="run-status" class="status-pill">Idle</span>
+    </div>
   </header>
 
-  <main class="grid">
-    <section class="panel">
-      <div class="panel-head">
+  <main class="shell">
+    <section class="analysis-card" id="signature-card">
+      <div class="analysis-head">
         <div>
-          <h2>1. Signature forgery attempt</h2>
-          <p>Tamper with claims, keep the old signature, then try random HMAC keys.</p>
+          <p class="number">Analysis 1</p>
+          <h2>Signature Forgery Attempt</h2>
+          <p>Tamper with CAT claims and try to reuse or forge the signature.</p>
         </div>
-        <button data-endpoint="/analysis/signature-forgery" data-output="sig-output">Run</button>
+        <button data-analysis="signature">Run Attack</button>
       </div>
-      <pre id="sig-output">No result yet.</pre>
+      <div class="flow-grid">
+        <article class="stage original">
+          <h3>Original Token Claims</h3>
+          <div id="sig-original" class="kv-list empty">Run the analysis to generate a token.</div>
+        </article>
+        <article class="stage attack">
+          <h3>Attack / Change Made</h3>
+          <div id="sig-attack" class="kv-list empty">Role escalation and expiry extension will appear here.</div>
+        </article>
+        <article class="stage result">
+          <h3>Verification Result</h3>
+          <div id="sig-result" class="result-box neutral">No result yet.</div>
+        </article>
+        <article class="stage takeaway">
+          <h3>Analysis Output</h3>
+          <div id="sig-analysis" class="analysis-text">HMAC result and length-extension note will appear here.</div>
+        </article>
+      </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
+    <section class="analysis-card" id="password-card">
+      <div class="analysis-head">
         <div>
-          <h2>2. Password hash attacks</h2>
-          <p>Compare unsalted SHA-256 rainbow table reuse with salted dictionary recomputation.</p>
+          <p class="number">Analysis 2</p>
+          <h2>Password Hash Attacks</h2>
+          <p>Compare unsalted SHA-256 rainbow table reuse with salted SHA-256 recomputation.</p>
         </div>
-        <button data-endpoint="/analysis/password-attacks" data-output="pass-output">Run</button>
+        <button data-analysis="passwords">Run Attack</button>
       </div>
-      <pre id="pass-output">No result yet.</pre>
+      <div class="flow-grid password-grid">
+        <article class="stage original">
+          <h3>Unsalted Stored Hashes</h3>
+          <div id="pass-original" class="table-wrap empty">Run the analysis to see reusable hashes.</div>
+        </article>
+        <article class="stage attack">
+          <h3>Rainbow Table Attack</h3>
+          <div id="pass-attack" class="table-wrap empty">Cracked passwords will appear here.</div>
+        </article>
+        <article class="stage result">
+          <h3>Salted Repeat</h3>
+          <div id="pass-result" class="table-wrap empty">Salted hash results will appear here.</div>
+        </article>
+        <article class="stage takeaway">
+          <h3>Analysis Output</h3>
+          <div id="pass-analysis" class="analysis-text">Cost comparison will appear here.</div>
+        </article>
+      </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
+    <section class="analysis-card" id="replay-card">
+      <div class="analysis-head">
         <div>
-          <h2>5. Token replay attack</h2>
-          <p>Replay the same token before and after logout-style revocation.</p>
+          <p class="number">Analysis 5</p>
+          <h2>Token Replay Attack</h2>
+          <p>Replay a copied token before and after server-side revocation.</p>
         </div>
-        <button data-endpoint="/analysis/replay" data-output="replay-output">Run</button>
+        <button data-analysis="replay">Run Attack</button>
       </div>
-      <pre id="replay-output">No result yet.</pre>
+      <div class="flow-grid">
+        <article class="stage original">
+          <h3>Original Session</h3>
+          <div id="replay-original" class="kv-list empty">Run the analysis to create a login session.</div>
+        </article>
+        <article class="stage attack">
+          <h3>Attack / Change Made</h3>
+          <div id="replay-attack" class="kv-list empty">Logout revocation and replay attempt will appear here.</div>
+        </article>
+        <article class="stage result">
+          <h3>Replay Result</h3>
+          <div id="replay-result" class="result-box neutral">No result yet.</div>
+        </article>
+        <article class="stage takeaway">
+          <h3>Analysis Output</h3>
+          <div id="replay-analysis" class="analysis-text">Replay comparison will appear here.</div>
+        </article>
+      </div>
     </section>
 
-    <section class="panel full">
-      <div class="panel-head">
+    <section class="analysis-card">
+      <div class="analysis-head compact">
         <div>
-          <h2>Combined report</h2>
-          <p>Aggregated output for all cryptanalysis demonstrations.</p>
+          <p class="number">Raw Report</p>
+          <h2>Full JSON Output</h2>
+          <p>Use this for exact values while presenting the visual sections above.</p>
         </div>
       </div>
-      <pre id="all-output">Run all analyses to generate a full report.</pre>
+      <pre id="raw-output">Run one analysis or Run All to populate the raw report.</pre>
     </section>
   </main>
 
