@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RoleAuth Demo</title>
+  <link rel="stylesheet" href="/demo/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">CryptoAuth sample app</p>
+      <h1>RoleAuth Portal</h1>
+    </div>
+    <div class="session-pill" id="session-pill">Signed out</div>
+  </header>
+
+  <main class="shell">
+    <section class="panel auth-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Create or access an account</h2>
+          <p>Register with a role claim, then log in to receive a CAT bearer token.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          Username
+          <input id="username" autocomplete="username" value="admin@example.com">
+        </label>
+        <label>
+          Password
+          <input id="password" type="password" autocomplete="current-password" value="password123">
+        </label>
+        <label>
+          Role
+          <select id="role">
+            <option value="user">User</option>
+            <option value="admin" selected>Admin</option>
+          </select>
+        </label>
+        <label>
+          Department
+          <input id="department" value="Security">
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="register-btn">Register</button>
+        <button id="login-btn" class="secondary">Login</button>
+        <button id="logout-btn" class="ghost">Logout</button>
+      </div>
+
+      <div class="status" id="status">Ready.</div>
+    </section>
+
+    <section class="panel account-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Authenticated session</h2>
+          <p>The profile is loaded from <code>/auth/me</code> using the CAT token.</p>
+        </div>
+        <button id="refresh-profile-btn" class="secondary small">Refresh</button>
+      </div>
+      <dl class="profile-grid">
+        <div>
+          <dt>Username</dt>
+          <dd id="profile-username">-</dd>
+        </div>
+        <div>
+          <dt>Role</dt>
+          <dd id="profile-role">-</dd>
+        </div>
+        <div>
+          <dt>Token expires</dt>
+          <dd id="profile-exp">-</dd>
+        </div>
+      </dl>
+      <pre id="claims-output">No verified claims yet.</pre>
+    </section>
+
+    <section class="workspace">
+      <article class="access-card" id="user-card">
+        <div class="card-icon">U</div>
+        <h2>User area</h2>
+        <p>Available to authenticated users with role <strong>user</strong> or <strong>admin</strong>.</p>
+        <button id="user-action-btn" class="secondary">Open User Report</button>
+        <div class="access-state locked" id="user-state">Sign in to unlock.</div>
+      </article>
+
+      <article class="access-card" id="admin-card">
+        <div class="card-icon admin">A</div>
+        <h2>Admin area</h2>
+        <p>Available only when the verified token claims include role <strong>admin</strong>.</p>
+        <button id="admin-action-btn" class="secondary">Open Admin Console</button>
+        <div class="access-state locked" id="admin-state">Admin role required.</div>
+      </article>
+    </section>
+
+    <section class="panel token-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Token and authorization checks</h2>
+          <p>The browser verifies the token with the auth service before enabling role-based UI.</p>
+        </div>
+        <button id="verify-btn" class="secondary small">Verify Token</button>
+      </div>
+      <textarea id="token-box" placeholder="CAT token will appear here after login"></textarea>
+      <pre id="auth-log">No authorization checks yet.</pre>
+    </section>
+  </main>
+
+  <script src="/demo/assets/app.js"></script>
+</body>
+</html>

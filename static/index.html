@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CryptoAuth Token Playground</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --text: #1b2430;
+      --muted: #647084;
+      --line: #d8dee8;
+      --accent: #246bfe;
+      --good: #0f8b5f;
+      --bad: #bd2d3a;
+      --header: #e7f0ff;
+      --payload: #fff3cf;
+      --signature: #e7f7eb;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      padding: 28px max(20px, calc((100vw - 1180px) / 2)) 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: 0; }
+    p { margin: 0; color: var(--muted); }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 22px 20px 36px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      min-width: 0;
+    }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    label { display: block; margin: 12px 0 6px; color: #394457; font-weight: 600; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 11px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea { min-height: 82px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 13px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary { background: #344054; }
+    button.danger { background: var(--bad); }
+    pre {
+      margin: 12px 0 0;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      overflow: auto;
+      background: #fbfcfe;
+      min-height: 44px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .token-parts { display: grid; gap: 8px; margin-top: 12px; }
+    .part {
+      padding: 10px;
+      border-radius: 6px;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .header { background: var(--header); }
+    .payload { background: var(--payload); }
+    .signature { background: var(--signature); }
+    .status { margin-top: 12px; font-weight: 700; }
+    .ok { color: var(--good); }
+    .err { color: var(--bad); }
+    @media (max-width: 820px) {
+      main, .row { grid-template-columns: 1fr; }
+      h1 { font-size: 23px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CryptoAuth Token Playground</h1>
+    <p>JWT-shaped CAT tokens with encrypted payloads, HMAC signatures, and revocation state.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Token Playground</h2>
+      <div class="row">
+        <div>
+          <label for="username">Username</label>
+          <input id="username" value="ada">
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" type="password" value="correct horse battery staple">
+        </div>
+      </div>
+      <label for="claims">Custom claims JSON</label>
+      <textarea id="claims">{"role":"admin","team":"research"}</textarea>
+      <div class="actions">
+        <button onclick="registerUser()">Register</button>
+        <button class="secondary" onclick="loginUser()">Login</button>
+        <button class="secondary" onclick="verifyActive()">Verify</button>
+      </div>
+      <div id="playground-status" class="status"></div>
+      <div id="token-parts" class="token-parts"></div>
+      <pre id="login-output"></pre>
+    </section>
+
+    <section>
+      <h2>Protected Resource</h2>
+      <p>Calls <strong>/auth/me</strong> with the active bearer token.</p>
+      <div class="actions">
+        <button onclick="loadMe()">Load Profile</button>
+      </div>
+      <pre id="me-output"></pre>
+    </section>
+
+    <section>
+      <h2>Token Inspector</h2>
+      <label for="inspect-token">Token</label>
+      <textarea id="inspect-token" placeholder="Paste any CAT token"></textarea>
+      <div class="actions">
+        <button onclick="inspectToken()">Inspect</button>
+        <button class="secondary" onclick="useActiveForInspect()">Use Active Token</button>
+      </div>
+      <pre id="inspect-output"></pre>
+    </section>
+
+    <section>
+      <h2>Revocation Demo</h2>
+      <label for="revoke-reason">Reason</label>
+      <input id="revoke-reason" value="demo revocation">
+      <div class="actions">
+        <button class="danger" onclick="revokeActive()">Revoke Active Token</button>
+        <button class="secondary" onclick="verifyActive()">Verify Again</button>
+      </div>
+      <pre id="revoke-output"></pre>
+    </section>
+  </main>
+
+  <script>
+    let activeToken = "";
+
+    function show(id, value, ok = true) {
+      const el = document.getElementById(id);
+      el.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      if (id.endsWith("status")) {
+        el.className = "status " + (ok ? "ok" : "err");
+      }
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || JSON.stringify(data));
+      return data;
+    }
+
+    function claimsFromInput() {
+      const raw = document.getElementById("claims").value.trim();
+      return raw ? JSON.parse(raw) : {};
+    }
+
+    function renderToken(token) {
+      const [header, payload, signature] = token.split(".");
+      document.getElementById("token-parts").innerHTML = `
+        <div class="part header"><strong>Header</strong><br>${header}</div>
+        <div class="part payload"><strong>Encrypted payload</strong><br>${payload}</div>
+        <div class="part signature"><strong>Signature</strong><br>${signature}</div>
+      `;
+      document.getElementById("inspect-token").value = token;
+    }
+
+    async function registerUser() {
+      try {
+        const data = await api("/auth/register", {
+          method: "POST",
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value,
+            claims: claimsFromInput()
+          })
+        });
+        show("playground-status", "Registered " + data.username, true);
+      } catch (err) {
+        show("playground-status", err.message, false);
+      }
+    }
+
+    async function loginUser() {
+      try {
+        const data = await api("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value
+          })
+        });
+        activeToken = data.token;
+        renderToken(activeToken);
+        show("login-output", data);
+        show("playground-status", "Logged in and received CAT token", true);
+      } catch (err) {
+        show("playground-status", err.message, false);
+      }
+    }
+
+    async function verifyActive() {
+      try {
+        const data = await api("/auth/verify", { method: "POST", body: JSON.stringify({ token: activeToken }) });
+        show("login-output", data);
+        show("playground-status", "Token is valid", true);
+      } catch (err) {
+        show("login-output", err.message);
+        show("playground-status", "Token verification failed", false);
+      }
+    }
+
+    async function loadMe() {
+      try {
+        const data = await api("/auth/me", { headers: { Authorization: "Bearer " + activeToken } });
+        show("me-output", data);
+      } catch (err) {
+        show("me-output", err.message);
+      }
+    }
+
+    function useActiveForInspect() {
+      document.getElementById("inspect-token").value = activeToken;
+    }
+
+    async function inspectToken() {
+      try {
+        const token = encodeURIComponent(document.getElementById("inspect-token").value.trim());
+        const data = await api("/auth/inspect?token=" + token);
+        show("inspect-output", data);
+      } catch (err) {
+        show("inspect-output", err.message);
+      }
+    }
+
+    async function revokeActive() {
+      try {
+        const data = await api("/auth/revoke", {
+          method: "POST",
+          body: JSON.stringify({ token: activeToken, reason: document.getElementById("revoke-reason").value })
+        });
+        show("revoke-output", data);
+      } catch (err) {
+        show("revoke-output", err.message);
+      }
+    }
+  </script>
+</body>
+</html>
