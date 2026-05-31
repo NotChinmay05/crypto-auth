@@ -24,6 +24,8 @@ Open `http://127.0.0.1:8000/demo` for a separate sample website that registers u
 
 Open `http://127.0.0.1:8000/image` for the steganographic image signing studio. It signs images by embedding an HMAC-protected certificate into red-channel LSBs and verifies whether a signed PNG is authentic, tampered, or unsigned.
 
+Open `http://127.0.0.1:8000/analysis` for the CAT cryptanalysis lab. It demonstrates signature tampering rejection, password rainbow table limitations with salts, and replay prevention through token revocation.
+
 ## Test
 
 ```bash
@@ -54,3 +56,7 @@ export CAT_SIGNING_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbc
 - `POST /image/sign`
 - `POST /image/verify`
 - `POST /image/inspect`
+- `POST /analysis/signature-forgery`
+- `POST /analysis/password-attacks`
+- `POST /analysis/replay`
+- `POST /analysis/run-all`

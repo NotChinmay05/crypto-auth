@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAT Cryptanalysis Lab</title>
+  <link rel="stylesheet" href="/analysis/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">CryptoAuth educational analysis</p>
+      <h1>CAT Cryptanalysis Lab</h1>
+    </div>
+    <button id="run-all" class="secondary">Run All</button>
+  </header>
+
+  <main class="grid">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>1. Signature forgery attempt</h2>
+          <p>Tamper with claims, keep the old signature, then try random HMAC keys.</p>
+        </div>
+        <button data-endpoint="/analysis/signature-forgery" data-output="sig-output">Run</button>
+      </div>
+      <pre id="sig-output">No result yet.</pre>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>2. Password hash attacks</h2>
+          <p>Compare unsalted SHA-256 rainbow table reuse with salted dictionary recomputation.</p>
+        </div>
+        <button data-endpoint="/analysis/password-attacks" data-output="pass-output">Run</button>
+      </div>
+      <pre id="pass-output">No result yet.</pre>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>5. Token replay attack</h2>
+          <p>Replay the same token before and after logout-style revocation.</p>
+        </div>
+        <button data-endpoint="/analysis/replay" data-output="replay-output">Run</button>
+      </div>
+      <pre id="replay-output">No result yet.</pre>
+    </section>
+
+    <section class="panel full">
+      <div class="panel-head">
+        <div>
+          <h2>Combined report</h2>
+          <p>Aggregated output for all cryptanalysis demonstrations.</p>
+        </div>
+      </div>
+      <pre id="all-output">Run all analyses to generate a full report.</pre>
+    </section>
+  </main>
+
+  <script src="/analysis/assets/app.js"></script>
+</body>
+</html>
