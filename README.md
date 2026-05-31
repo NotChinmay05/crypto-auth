@@ -26,6 +26,8 @@ Open `http://127.0.0.1:8000/image` for the steganographic image signing studio. 
 
 Open `http://127.0.0.1:8000/analysis` for the CAT cryptanalysis lab. It demonstrates signature tampering rejection, password rainbow table limitations with salts, and replay prevention through token revocation.
 
+The same analysis dashboard also includes image-signing cryptanalysis demos for metadata stripping, JPEG conversion, pixel modification sensitivity, and LSB certificate forgery attempts.
+
 ## Test
 
 ```bash
@@ -60,3 +62,7 @@ export CAT_SIGNING_KEY=00112233445566778899aabbccddeeff00112233445566778899aabbc
 - `POST /analysis/password-attacks`
 - `POST /analysis/replay`
 - `POST /analysis/run-all`
+- `POST /analysis/image/metadata-format`
+- `POST /analysis/image/pixel-sensitivity`
+- `POST /analysis/image/certificate-forgery`
+- `POST /analysis/image/run-all`

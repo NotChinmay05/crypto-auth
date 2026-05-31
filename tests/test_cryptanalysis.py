@@ -45,3 +45,38 @@ def test_analysis_routes_are_registered():
     assert "/analysis/password-attacks" in paths
     assert "/analysis/replay" in paths
     assert "/analysis/run-all" in paths
+    assert "/analysis/image/metadata-format" in paths
+    assert "/analysis/image/pixel-sensitivity" in paths
+    assert "/analysis/image/certificate-forgery" in paths
+    assert "/analysis/image/run-all" in paths
+
+
+def test_image_metadata_and_format_analysis():
+    result = CryptanalysisService().image_metadata_and_format()
+
+    assert result["analysis"] == "image_metadata_stripping_and_format_conversion"
+    assert result["metadata_stripping"]["after_strip_verification"] == "AUTHENTIC"
+    assert result["metadata_stripping"]["survived"] is True
+    assert result["jpeg_conversion"]["after_conversion_verification"] != "AUTHENTIC"
+    assert result["jpeg_conversion"]["survived"] is False
+
+
+def test_image_pixel_sensitivity_analysis():
+    result = CryptanalysisService().image_pixel_sensitivity()
+
+    assert result["analysis"] == "image_pixel_modification_sensitivity"
+    assert result["baseline"]["verification"] == "AUTHENTIC"
+    assert len(result["modifications"]) == 3
+    assert all(item["verification"] == "TAMPERED" for item in result["modifications"])
+    assert all(item["pixel_hash_valid"] is False for item in result["modifications"])
+    assert all(item["hamming_distance_bits"] > 80 for item in result["modifications"])
+
+
+def test_image_certificate_forgery_analysis():
+    result = CryptanalysisService().image_certificate_forgery()
+
+    assert result["analysis"] == "image_lsb_certificate_forgery"
+    assert result["extracted_certificate"]["author"] == "Alice"
+    assert result["forged_certificate_attempt"]["author"] == "Mallory"
+    assert result["verification"]["status"] == "TAMPERED"
+    assert result["verification"]["hmac_valid"] is False

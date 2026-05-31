@@ -37,3 +37,23 @@ async def replay_attack() -> dict:
 @router.post("/run-all")
 async def run_all() -> dict:
     return service.run_all()
+
+
+@router.post("/image/metadata-format")
+async def image_metadata_format() -> dict:
+    return service.image_metadata_and_format()
+
+
+@router.post("/image/pixel-sensitivity")
+async def image_pixel_sensitivity() -> dict:
+    return service.image_pixel_sensitivity()
+
+
+@router.post("/image/certificate-forgery")
+async def image_certificate_forgery() -> dict:
+    return service.image_certificate_forgery()
+
+
+@router.post("/image/run-all")
+async def image_run_all() -> dict:
+    return service.run_image_all()

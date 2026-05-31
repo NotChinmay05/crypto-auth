@@ -95,6 +95,14 @@ button:hover {
   background: var(--accent-dark);
 }
 
+button.secondary {
+  background: #334155;
+}
+
+button.secondary:hover {
+  background: #1f2937;
+}
+
 button:disabled {
   cursor: wait;
   opacity: 0.55;
