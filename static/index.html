@@ -60,6 +60,20 @@
       color: var(--text);
       background: #fff;
     }
+    .password-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .password-control input { min-width: 0; }
+    .password-toggle {
+      min-width: 64px;
+      padding: 10px 11px;
+      background: #eef2f7;
+      color: #344054;
+    }
+    .password-toggle:hover { background: #e2e8f0; }
     textarea { min-height: 82px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
@@ -122,7 +136,10 @@
         </div>
         <div>
           <label for="password">Password</label>
-          <input id="password" type="password" value="correct horse battery staple">
+          <div class="password-control">
+            <input id="password" type="password" value="correct horse battery staple">
+            <button id="password-toggle" class="password-toggle" type="button" onclick="togglePassword()">Show</button>
+          </div>
         </div>
       </div>
       <label for="claims">Custom claims JSON</label>
@@ -171,6 +188,15 @@
 
   <script>
     let activeToken = "";
+
+    function togglePassword() {
+      const input = document.getElementById("password");
+      const button = document.getElementById("password-toggle");
+      const showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      button.textContent = showing ? "Show" : "Hide";
+      button.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    }
 
     function show(id, value, ok = true) {
       const el = document.getElementById(id);

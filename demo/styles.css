@@ -133,6 +133,22 @@ textarea {
   font: inherit;
 }
 
+.password-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.password-control input {
+  min-width: 0;
+}
+
+button.password-toggle {
+  min-width: 64px;
+  padding: 10px 11px;
+}
+
 textarea {
   min-height: 112px;
   resize: vertical;

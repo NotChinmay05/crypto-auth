@@ -30,18 +30,28 @@ document.querySelector("#login-btn").addEventListener("click", login);
 document.querySelector("#logout-btn").addEventListener("click", logout);
 document.querySelector("#verify-btn").addEventListener("click", verifyToken);
 document.querySelector("#refresh-profile-btn").addEventListener("click", loadProfile);
+document.querySelector("#password-toggle").addEventListener("click", togglePassword);
 els.userActionBtn.addEventListener("click", () => log("User report opened for " + state.claims.sub));
 els.adminActionBtn.addEventListener("click", () => log("Admin console opened for " + state.claims.sub));
 
 init();
 
 function init() {
+  document.querySelector("#password-toggle").setAttribute("aria-label", "Show password");
   els.tokenBox.value = state.token;
   if (state.token) {
     verifyToken();
   } else {
     applyAuthorization(null);
   }
+}
+
+function togglePassword() {
+  const button = document.querySelector("#password-toggle");
+  const showing = els.password.type === "text";
+  els.password.type = showing ? "password" : "text";
+  button.textContent = showing ? "Show" : "Hide";
+  button.setAttribute("aria-label", showing ? "Show password" : "Hide password");
 }
 
 async function register() {
