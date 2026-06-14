@@ -4,12 +4,6 @@ const endpoints = {
   replay: "/analysis/replay",
 };
 
-const imageEndpoints = {
-  metadata: "/analysis/image/metadata-format",
-  pixels: "/analysis/image/pixel-sensitivity",
-  certificate: "/analysis/image/certificate-forgery",
-};
-
 document.querySelectorAll("button[data-analysis]").forEach((button) => {
   button.addEventListener("click", () => runSingle(button.dataset.analysis, button));
 });
@@ -23,9 +17,6 @@ document.querySelector("#run-all").addEventListener("click", async (event) => {
     renderSignature(data.results.signature_forgery);
     renderPasswords(data.results.password_attacks);
     renderReplay(data.results.replay_attack);
-    renderMetadata(data.results.image_metadata_and_format);
-    renderPixels(data.results.image_pixel_sensitivity);
-    renderCertificate(data.results.image_certificate_forgery);
     showRaw(data);
     setStatus(`Complete in ${data.duration_ms} ms`);
   } catch (error) {
@@ -36,29 +27,6 @@ document.querySelector("#run-all").addEventListener("click", async (event) => {
   }
 });
 
-document.querySelector("#run-image-all").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
-  setBusy(button, true, "Running...");
-  setStatus("Running image analyses");
-  try {
-    const data = await postJson("/analysis/image/run-all");
-    renderMetadata(data.results.metadata_and_format);
-    renderPixels(data.results.pixel_sensitivity);
-    renderCertificate(data.results.certificate_forgery);
-    showRaw(data);
-    setStatus(`Image complete in ${data.duration_ms} ms`);
-  } catch (error) {
-    showRaw(error.message);
-    setStatus("Error");
-  } finally {
-    setBusy(button, false, "Run Image Analyses");
-  }
-});
-
-document.querySelectorAll("button[data-image-analysis]").forEach((button) => {
-  button.addEventListener("click", () => runImageSingle(button.dataset.imageAnalysis, button));
-});
-
 async function runSingle(type, button) {
   setBusy(button, true, "Running...");
   setStatus("Running");
@@ -67,24 +35,6 @@ async function runSingle(type, button) {
     if (type === "signature") renderSignature(data);
     if (type === "passwords") renderPasswords(data);
     if (type === "replay") renderReplay(data);
-    showRaw(data);
-    setStatus("Complete");
-  } catch (error) {
-    showRaw(error.message);
-    setStatus("Error");
-  } finally {
-    setBusy(button, false, "Run Attack");
-  }
-}
-
-async function runImageSingle(type, button) {
-  setBusy(button, true, "Running...");
-  setStatus("Running image analysis");
-  try {
-    const data = await postJson(imageEndpoints[type]);
-    if (type === "metadata") renderMetadata(data);
-    if (type === "pixels") renderPixels(data);
-    if (type === "certificate") renderCertificate(data);
     showRaw(data);
     setStatus("Complete");
   } catch (error) {
@@ -192,95 +142,6 @@ function renderReplay(data) {
     `With revocation: replay accepted = ${data.replay_after_revoke.accepted}.`,
     `Without revocation: replay accepted = ${data.replay_without_revocation.accepted}.`,
     "The blacklist is authorization state outside the token signature.",
-  ]);
-}
-
-function renderMetadata(data) {
-  document.querySelector("#meta-original").innerHTML = kvList({
-    Author: data.signed_image.author,
-    "Image ID": data.signed_image.image_id,
-    "Payload bytes": data.signed_image.payload_bytes,
-    "Carrier pixels": data.signed_image.carrier_pixels,
-  });
-
-  document.querySelector("#meta-attack").innerHTML = kvList({
-    "Metadata attack": data.metadata_stripping.change,
-    "Format attack": data.jpeg_conversion.change,
-    "Storage assumption": "PNG/lossless required",
-  });
-
-  const stripOk = data.metadata_stripping.survived;
-  const jpegOk = data.jpeg_conversion.survived;
-  setResult(
-    "#meta-result",
-    stripOk && !jpegOk ? "Metadata survives, JPEG breaks signature" : "Unexpected conversion result",
-    stripOk && !jpegOk ? "good" : "warn",
-    `Metadata strip: ${data.metadata_stripping.after_strip_verification}; JPEG round trip: ${data.jpeg_conversion.after_conversion_verification}`
-  );
-
-  document.querySelector("#meta-analysis").innerHTML = paragraphs([
-    data.summary,
-    `Metadata stripping survived: ${stripOk}.`,
-    `JPEG conversion survived: ${jpegOk}.`,
-    data.jpeg_conversion.reason,
-  ]);
-}
-
-function renderPixels(data) {
-  document.querySelector("#pixel-original").innerHTML = kvList({
-    "Image ID": data.baseline.image_id,
-    Verification: data.baseline.verification,
-    "Hash prefix": shortHash(data.baseline.expected_hash),
-  });
-
-  document.querySelector("#pixel-attack").innerHTML = table(
-    ["Scenario", "Pixels changed", "Verification"],
-    data.modifications.map((item) => [item.scenario, item.modified_pixels, item.verification])
-  );
-
-  document.querySelector("#pixel-result").innerHTML = table(
-    ["Scenario", "Hamming distance", "Hash valid"],
-    data.modifications.map((item) => [
-      item.scenario,
-      `${item.hamming_distance_bits} / 256 bits`,
-      String(item.pixel_hash_valid),
-    ])
-  );
-
-  document.querySelector("#pixel-analysis").innerHTML = paragraphs([
-    data.summary,
-    data.avalanche_note,
-    "Every tested modification was rejected because the canonical pixel hash changed.",
-  ]);
-}
-
-function renderCertificate(data) {
-  document.querySelector("#cert-original").innerHTML = kvList({
-    Author: data.extracted_certificate.author,
-    "Image ID": data.extracted_certificate.image_id,
-    Timestamp: formatTime(data.extracted_certificate.timestamp),
-    "Hash prefix": shortHash(data.extracted_certificate.hash),
-  });
-
-  document.querySelector("#cert-attack").innerHTML = kvList({
-    Change: data.forgery.change,
-    "Signature strategy": data.forgery.signature_strategy,
-    "Payload bytes": data.forgery.payload_bytes,
-    "Forged author": data.forged_certificate_attempt.author,
-  });
-
-  const accepted = data.verification.status === "AUTHENTIC";
-  setResult(
-    "#cert-result",
-    accepted ? "Forged certificate accepted" : "Forged certificate rejected",
-    accepted ? "bad" : "good",
-    data.verification.reason
-  );
-
-  document.querySelector("#cert-analysis").innerHTML = paragraphs([
-    data.summary,
-    `HMAC valid: ${data.verification.hmac_valid}.`,
-    data.takeaway,
   ]);
 }
 

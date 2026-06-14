@@ -11,9 +11,6 @@ from app.auth.service import AuthError, AuthService
 from app.models import LoginRequest, RegisterRequest, RevokeRequest, TokenRequest
 from cryptanalysis.router import STATIC_DIR as CRYPTANALYSIS_STATIC_DIR
 from cryptanalysis.router import router as cryptanalysis_router
-from image_signing.router import STATIC_DIR as IMAGE_SIGNING_STATIC_DIR
-from image_signing.router import router as image_signing_router
-from image_signing.service import ImageSigningError
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -36,19 +33,12 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/demo/assets", StaticFiles(directory=DEMO_DIR), name="demo-assets")
-app.mount("/image/assets", StaticFiles(directory=IMAGE_SIGNING_STATIC_DIR), name="image-signing-assets")
 app.mount("/analysis/assets", StaticFiles(directory=CRYPTANALYSIS_STATIC_DIR), name="cryptanalysis-assets")
-app.include_router(image_signing_router, prefix="/image")
 app.include_router(cryptanalysis_router, prefix="/analysis")
 
 
 @app.exception_handler(AuthError)
 async def auth_error_handler(_, exc: AuthError) -> JSONResponse:
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
-
-
-@app.exception_handler(ImageSigningError)
-async def image_signing_error_handler(_, exc: ImageSigningError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 

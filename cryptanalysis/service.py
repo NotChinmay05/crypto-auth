@@ -3,25 +3,13 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any
-
-from PIL import Image, PngImagePlugin
 
 from app.auth.service import AuthError, AuthService
 from app.crypto.aes import BLOCK_SIZE, aes128_cbc_decrypt, aes128_cbc_encrypt
 from app.crypto.encoding import b64url_decode, b64url_encode, json_b64url_encode
 from app.crypto.hmac import constant_time_equal, hmac_sha256
 from app.crypto.sha256 import sha256
-from image_signing.service import (
-    HEADER_SIZE,
-    ImageSigningService,
-    SIGNATURE_SIZE,
-    _embed_payload,
-    _json_bytes,
-    _pack_payload,
-    _pixel_count,
-)
 
 ANALYSIS_ENCRYPTION_KEY = b"A" * 16
 ANALYSIS_SIGNING_KEY = b"B" * 32
@@ -76,6 +64,92 @@ class CryptanalysisService:
                 "result": "not applicable to CAT",
             },
         }
+
+    def token_walkthrough(self, token: str, modified_payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        token = (token or "").strip()
+        if not token:
+            raise AuthError("token is required", 400)
+
+        try:
+            encoded_header, encoded_payload, encoded_signature = token.split(".")
+        except ValueError as exc:
+            raise AuthError("token must have three dot-separated parts", 400) from exc
+
+        header = json.loads(b64url_decode(encoded_header).decode("utf-8"))
+        encrypted_payload = b64url_decode(encoded_payload)
+        if len(encrypted_payload) < BLOCK_SIZE * 2:
+            raise AuthError("token payload is too short", 400)
+
+        iv = encrypted_payload[:BLOCK_SIZE]
+        ciphertext = encrypted_payload[BLOCK_SIZE:]
+        original_payload = json.loads(
+            aes128_cbc_decrypt(ciphertext, ANALYSIS_ENCRYPTION_KEY, iv).decode("utf-8")
+        )
+        supplied_signature = b64url_decode(encoded_signature)
+        expected_signature = hmac_sha256(
+            ANALYSIS_SIGNING_KEY,
+            f"{encoded_header}.{encoded_payload}".encode("ascii"),
+        )
+
+        walkthrough = {
+            "analysis": "token_walkthrough",
+            "summary": "Decode the CAT header, decrypt the payload, edit the payload, then compare signatures and verification results.",
+            "header": header,
+            "original_payload": original_payload,
+            "supplied_signature_hex": supplied_signature.hex(),
+            "computed_signature_hex": expected_signature.hex(),
+            "signature_matches": constant_time_equal(supplied_signature, expected_signature),
+            "modified_payload": None,
+            "modified_signature_hex": None,
+            "modified_signature_matches": None,
+            "modified_token_verification": None,
+            "steps": [
+                "Split the token into header, payload, and signature.",
+                "Decode the header and payload from base64url.",
+                "Decrypt the payload with the analysis AES key.",
+                "Compare the supplied signature with the computed HMAC.",
+            ],
+        }
+
+        if modified_payload is None:
+            return walkthrough
+        if not isinstance(modified_payload, dict):
+            raise AuthError("modified payload must be an object", 400)
+
+        modified_plaintext = json.dumps(modified_payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        modified_ciphertext = aes128_cbc_encrypt(modified_plaintext, ANALYSIS_ENCRYPTION_KEY, iv)
+        modified_encoded_payload = b64url_encode(iv + modified_ciphertext)
+        modified_signature = hmac_sha256(
+            ANALYSIS_SIGNING_KEY,
+            f"{encoded_header}.{modified_encoded_payload}".encode("ascii"),
+        )
+        modified_token = f"{encoded_header}.{modified_encoded_payload}.{encoded_signature}"
+        modified_verification = _verify_status(
+            AuthService(
+                encryption_key=ANALYSIS_ENCRYPTION_KEY,
+                signing_key=ANALYSIS_SIGNING_KEY,
+                token_ttl_seconds=900,
+            ),
+            modified_token,
+        )
+
+        walkthrough.update(
+            {
+                "modified_payload": modified_payload,
+                "modified_payload_json": json.dumps(modified_payload, separators=(",", ":"), sort_keys=True),
+                "modified_signature_hex": modified_signature.hex(),
+                "modified_signature_matches": constant_time_equal(supplied_signature, modified_signature),
+                "modified_token_verification": modified_verification,
+                "steps": walkthrough["steps"]
+                + [
+                    "Replace the payload JSON with the edited version.",
+                    "Re-encrypt the modified payload with the same AES key and IV.",
+                    "Keep the original signature in place to model tampering.",
+                    f"Verification result: {'accepted' if modified_verification['accepted'] else 'rejected'} ({modified_verification.get('error', 'valid')}).",
+                ],
+            }
+        )
+        return walkthrough
 
     def password_attacks(self) -> dict[str, Any]:
         records = [
@@ -171,120 +245,6 @@ class CryptanalysisService:
             "signature_forgery": self.signature_forgery(),
             "password_attacks": self.password_attacks(),
             "replay_attack": self.replay_attack(),
-            "image_metadata_and_format": self.image_metadata_and_format(),
-            "image_pixel_sensitivity": self.image_pixel_sensitivity(),
-            "image_certificate_forgery": self.image_certificate_forgery(),
-        }
-        return {"duration_ms": round((time.perf_counter() - started) * 1000, 2), "results": results}
-
-    def image_metadata_and_format(self) -> dict[str, Any]:
-        image_service = ImageSigningService(signing_key=ANALYSIS_SIGNING_KEY)
-        signed_png, signing = image_service.sign(_sample_png_with_metadata(), "Ada")
-
-        stripped_png = _resave_png_without_metadata(signed_png)
-        jpeg_round_trip_png = _jpeg_round_trip_png(signed_png)
-
-        original = image_service.verify(signed_png)
-        stripped = image_service.verify(stripped_png)
-        jpeg = image_service.verify(jpeg_round_trip_png)
-
-        return {
-            "analysis": "image_metadata_stripping_and_format_conversion",
-            "summary": "Pixel-embedded LSB signatures survive metadata stripping but do not survive lossy JPEG conversion.",
-            "signed_image": {
-                "author": signing["certificate"]["author"],
-                "image_id": signing["certificate"]["image_id"],
-                "payload_bytes": signing["payload_bytes"],
-                "carrier_pixels": signing["carrier_pixels"],
-            },
-            "metadata_stripping": {
-                "change": "re-save signed PNG from pixel data without text/EXIF metadata",
-                "verification": original["status"],
-                "after_strip_verification": stripped["status"],
-                "survived": stripped["status"] == "AUTHENTIC",
-            },
-            "jpeg_conversion": {
-                "change": "convert signed PNG to JPEG and back to PNG",
-                "after_conversion_verification": jpeg["status"],
-                "reason": jpeg["reason"],
-                "survived": jpeg["status"] == "AUTHENTIC",
-            },
-        }
-
-    def image_pixel_sensitivity(self) -> dict[str, Any]:
-        image_service = ImageSigningService(signing_key=ANALYSIS_SIGNING_KEY)
-        signed_png, signing = image_service.sign(_sample_png_with_metadata(), "Grace")
-        baseline = image_service.verify(signed_png)
-        expected_hash = baseline["expected_hash"]
-        carrier_pixels = signing["carrier_pixels"]
-
-        scenarios = [
-            ("large_region", 256, carrier_pixels + 20),
-            ("small_region", 16, carrier_pixels + 400),
-            ("single_pixel_plus_one", 1, carrier_pixels + 900),
-        ]
-        results = []
-        for name, count, start in scenarios:
-            tampered = _mutate_pixels(signed_png, start, count)
-            verification = image_service.verify(tampered)
-            actual_hash = verification["actual_hash"]
-            results.append(
-                {
-                    "scenario": name,
-                    "modified_pixels": count,
-                    "verification": verification["status"],
-                    "pixel_hash_valid": verification["pixel_hash_valid"],
-                    "hamming_distance_bits": _hex_hamming_distance(expected_hash, actual_hash),
-                    "expected_hash_prefix": expected_hash[:16],
-                    "actual_hash_prefix": actual_hash[:16] if actual_hash else None,
-                }
-            )
-
-        return {
-            "analysis": "image_pixel_modification_sensitivity",
-            "summary": "Changing even one non-carrier pixel changes the canonical image hash and causes verification failure.",
-            "baseline": {
-                "verification": baseline["status"],
-                "image_id": baseline["certificate"]["image_id"],
-                "expected_hash": expected_hash,
-            },
-            "modifications": results,
-            "avalanche_note": "SHA-256 hash outputs are 256 bits, so unrelated modified-image hashes tend to differ by about 128 bits.",
-        }
-
-    def image_certificate_forgery(self) -> dict[str, Any]:
-        image_service = ImageSigningService(signing_key=ANALYSIS_SIGNING_KEY)
-        signed_png, _ = image_service.sign(_sample_png_with_metadata(), "Alice")
-        extracted = image_service.inspect(signed_png)
-        embedded = image_service._extract(Image.open(BytesIO(signed_png)).convert("RGB").tobytes())
-
-        forged_certificate = {**embedded.certificate, "author": "Mallory"}
-        forged_certificate_bytes = _json_bytes(forged_certificate)
-        forged_signature = hmac_sha256(b"wrong-secret-key".ljust(32, b"!"), forged_certificate_bytes)
-        forged_payload = _pack_payload(forged_certificate_bytes, forged_signature)
-        forged_png = _embed_payload_in_png(signed_png, forged_payload)
-        verification = image_service.verify(forged_png)
-
-        return {
-            "analysis": "image_lsb_certificate_forgery",
-            "summary": "LSB extraction reveals the hidden certificate, but editing it without the server HMAC key fails verification.",
-            "extracted_certificate": extracted["certificate"],
-            "forged_certificate_attempt": forged_certificate,
-            "forgery": {
-                "change": "author changed from Alice to Mallory",
-                "signature_strategy": "recomputed HMAC with a wrong key",
-                "payload_bytes": len(forged_payload),
-            },
-            "verification": verification,
-            "takeaway": "Steganography hides bytes; HMAC authenticates them.",
-        }
-
-    def run_image_all(self) -> dict[str, Any]:
-        started = time.perf_counter()
-        results = {
-            "metadata_and_format": self.image_metadata_and_format(),
-            "pixel_sensitivity": self.image_pixel_sensitivity(),
-            "certificate_forgery": self.image_certificate_forgery(),
         }
         return {"duration_ms": round((time.perf_counter() - started) * 1000, 2), "results": results}
 
@@ -329,66 +289,3 @@ def make_toy_plaintext_token(claims: dict[str, Any], key: bytes = ANALYSIS_SIGNI
     encoded_payload = json_b64url_encode(claims)
     signature = hmac_sha256(key, f"{encoded_header}.{encoded_payload}".encode("ascii"))
     return f"{encoded_header}.{encoded_payload}.{b64url_encode(signature)}"
-
-
-def _sample_png_with_metadata(size: tuple[int, int] = (96, 96)) -> bytes:
-    image = Image.new("RGB", size)
-    pixels = []
-    for y in range(size[1]):
-        for x in range(size[0]):
-            pixels.append(((x * 3 + y) % 256, (y * 5 + 40) % 256, (x * 7 + 90) % 256))
-    image.putdata(pixels)
-    info = PngImagePlugin.PngInfo()
-    info.add_text("creator", "cryptanalysis-demo")
-    out = BytesIO()
-    image.save(out, format="PNG", pnginfo=info)
-    return out.getvalue()
-
-
-def _resave_png_without_metadata(png_bytes: bytes) -> bytes:
-    image = Image.open(BytesIO(png_bytes)).convert("RGB")
-    out = BytesIO()
-    image.save(out, format="PNG", compress_level=1)
-    return out.getvalue()
-
-
-def _jpeg_round_trip_png(png_bytes: bytes) -> bytes:
-    image = Image.open(BytesIO(png_bytes)).convert("RGB")
-    jpeg = BytesIO()
-    image.save(jpeg, format="JPEG", quality=75)
-    jpeg.seek(0)
-    converted = Image.open(jpeg).convert("RGB")
-    out = BytesIO()
-    converted.save(out, format="PNG", compress_level=1)
-    return out.getvalue()
-
-
-def _mutate_pixels(png_bytes: bytes, start_pixel: int, count: int) -> bytes:
-    image = Image.open(BytesIO(png_bytes)).convert("RGB")
-    pixels = bytearray(image.tobytes())
-    total_pixels = _pixel_count(pixels)
-    for pixel in range(start_pixel, min(start_pixel + count, total_pixels)):
-        green_offset = pixel * 3 + 1
-        pixels[green_offset] = (pixels[green_offset] + 1) % 256
-    mutated = Image.frombytes("RGB", image.size, bytes(pixels))
-    out = BytesIO()
-    mutated.save(out, format="PNG", compress_level=1)
-    return out.getvalue()
-
-
-def _embed_payload_in_png(png_bytes: bytes, payload: bytes) -> bytes:
-    image = Image.open(BytesIO(png_bytes)).convert("RGB")
-    pixels = bytearray(image.tobytes())
-    if _pixel_count(pixels) < len(payload) * 8:
-        raise ValueError("sample image lacks payload capacity")
-    _embed_payload(pixels, payload)
-    forged = Image.frombytes("RGB", image.size, bytes(pixels))
-    out = BytesIO()
-    forged.save(out, format="PNG", compress_level=1)
-    return out.getvalue()
-
-
-def _hex_hamming_distance(left: str | None, right: str | None) -> int | None:
-    if not left or not right:
-        return None
-    return sum(bin(a ^ b).count("1") for a, b in zip(bytes.fromhex(left), bytes.fromhex(right)))
